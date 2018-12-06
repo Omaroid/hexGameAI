@@ -5,7 +5,6 @@ This module implements a basic graphical client
 for the Hex board game.
 """
 
-
 import asyncio
 import sys
 import hexgui
@@ -32,6 +31,8 @@ def game_client(loop, state):
     print("Connected to the game server")
     sys.stdout.flush()
     state[0] = INIT_STATE
+    player=2
+    init=0
     while state[0] not in (END_STATE, CONNECTION_REFUSED):
         if state[0] == INIT_STATE:
             data = yield from reader.readline()
@@ -53,6 +54,9 @@ def game_client(loop, state):
                 hexboard = hexgame.Hex.create_from_str(message[5:])
                 hexgui.redraw(hexboard)
                 hexgui.set_title("hexgui.Hex game - your turn")
+                if init==0 and "1" not in message:
+                    player=1
+                    init=1
                 print(message)
             if message.startswith("End"):
                 state[0] = END_STATE
@@ -86,6 +90,7 @@ def game_client(loop, state):
                 state[0] = PLAYING
         sys.stdout.flush()
     if state[0] == END_STATE:
+        print("Joueur :"+str(player))
         print("{} wins the game".format(hexgui.player_names[hexboard.winner]))
     writer.close()
 
