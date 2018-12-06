@@ -12,7 +12,7 @@ import hexgui
 import hexgame
 
 import random
-
+import math
 from collections import defaultdict
 
 INIT_STATE, START, PLAYING, WAITING_FOR_ACK,\
@@ -44,12 +44,15 @@ def send_message_callback(writer, row, col, state):
 
 @asyncio.coroutine
 def game_client(loop, state):
-    """The main client logic, based on a state machine."""
+    """The main client
+                hexboard.current=2 logic, based on a state machine."""
     reader, writer = yield from asyncio.open_connection(HOST, PORT,
                                                         loop=loop)
     print("Connected to the game server")
     sys.stdout.flush()
     state[0] = INIT_STATE
+    player=2
+    init=0
     while state[0] not in (END_STATE, CONNECTION_REFUSED):
         if state[0] == INIT_STATE:
             data = yield from reader.readline()
@@ -71,6 +74,9 @@ def game_client(loop, state):
                 hexboard = hexgame.Hex.create_from_str(message[5:])
                 hexgui.redraw(hexboard)
                 hexgui.set_title("Hex game - your turn")
+                if init==0 and "1" not in message:
+                    player=1
+                    init=1
                 print(message)
             if message.startswith("End"):
                 state[0] = END_STATE
@@ -80,8 +86,8 @@ def game_client(loop, state):
                 print(message)
         if state[0] == PLAYING:
             row, col = None, None
-            graph = make_graph(hexboard.size, hexboard.grid, hexboard.current)
-            tab = find_best(hexboard.size, graph, hexboard.current)
+            graph = make_graph(hexboard.size, hexboard.grid, player)
+            tab = find_best(hexboard.size, hexboard.grid, graph, player)
             row=tab[0]
             col=tab[1]
             yield from send_message_callback(writer,row, col,state)
@@ -100,6 +106,7 @@ def game_client(loop, state):
         sys.stdout.flush()
 
     if state[0] == END_STATE:
+        print("Joueur :"+str(player))
         print("{} wins the game".format(hexgui.player_names[hexboard.winner]))
     writer.close()
 
@@ -117,9 +124,7 @@ def make_graph(size, grid, current):
                         graph.add_edge(f,t,0)
                     else:
                         if grid[i-1][j-1]==EMPTY:
-                            graph.add_edge(f,t,1)
-                        else:
-                            graph.add_edge(f,t,2)
+                            graph.add_edge(f,t,50)
 
                 t=""+str(i)+"#"+str(j-1)
                 if j>0:
@@ -127,9 +132,7 @@ def make_graph(size, grid, current):
                         graph.add_edge(f,t,0)
                     else:
                         if grid[i][j-1]==EMPTY:
-                            graph.add_edge(f,t,1)
-                        else:
-                            graph.add_edge(f,t,2)
+                            graph.add_edge(f,t,50)
 
                 t=""+str(i+1)+"#"+str(j-1)
                 if j>0 and i<size-1:
@@ -137,9 +140,7 @@ def make_graph(size, grid, current):
                         graph.add_edge(f,t,0)
                     else:
                         if grid[i+1][j-1]==EMPTY:
-                            graph.add_edge(f,t,1)
-                        else:
-                            graph.add_edge(f,t,2)
+                            graph.add_edge(f,t,50)
 
                 t=""+str(i+1)+"#"+str(j)
                 if i<size-1:
@@ -147,9 +148,7 @@ def make_graph(size, grid, current):
                         graph.add_edge(f,t,0)
                     else:
                         if grid[i+1][j]==EMPTY:
-                            graph.add_edge(f,t,1)
-                        else:
-                            graph.add_edge(f,t,2)
+                            graph.add_edge(f,t,50)
 
                 t=""+str(i-1)+"#"+str(j)
                 if i>0:
@@ -157,9 +156,7 @@ def make_graph(size, grid, current):
                         graph.add_edge(f,t,0)
                     else:
                         if grid[i-1][j]==EMPTY:
-                            graph.add_edge(f,t,1)
-                        else:
-                            graph.add_edge(f,t,2)
+                            graph.add_edge(f,t,50)
 
                 t=""+str(i-1)+"#"+str(j+1)
                 if i>0 and j<size-1:
@@ -167,9 +164,7 @@ def make_graph(size, grid, current):
                         graph.add_edge(f,t,0)
                     else:
                         if grid[i-1][j+1]==EMPTY:
-                            graph.add_edge(f,t,1)
-                        else:
-                            graph.add_edge(f,t,2)
+                            graph.add_edge(f,t,50)
 
                 t=""+str(i)+"#"+str(j+1)
                 if j<size-1:
@@ -177,9 +172,7 @@ def make_graph(size, grid, current):
                         graph.add_edge(f,t,0)
                     else:
                         if grid[i][j+1]==EMPTY:
-                            graph.add_edge(f,t,1)
-                        else:
-                            graph.add_edge(f,t,2)
+                            graph.add_edge(f,t,50)
 
                 t=""+str(i+1)+"#"+str(j+1)
                 if i<size-1 and j<size-1:
@@ -187,9 +180,7 @@ def make_graph(size, grid, current):
                         graph.add_edge(f,t,0)
                     else:
                         if grid[i+1][j+1]==EMPTY:
-                            graph.add_edge(f,t,1)
-                        else:
-                            graph.add_edge(f,t,2)
+                            graph.add_edge(f,t,50)
             else:
                 if grid[i][j]==EMPTY:
                     f=""+str(i)+"#"+str(j)
@@ -199,9 +190,7 @@ def make_graph(size, grid, current):
                             graph.add_edge(f,t,1)
                         else:
                             if grid[i-1][j-1]==EMPTY:
-                                graph.add_edge(f,t,2)
-                            else:
-                                graph.add_edge(f,t,3)
+                                graph.add_edge(f,t,100)
 
                     t=""+str(i)+"#"+str(j-1)
                     if j>0:
@@ -209,9 +198,7 @@ def make_graph(size, grid, current):
                             graph.add_edge(f,t,1)
                         else:
                             if grid[i][j-1]==EMPTY:
-                                graph.add_edge(f,t,2)
-                            else:
-                                graph.add_edge(f,t,3)
+                                graph.add_edge(f,t,100)
 
                     t=""+str(i+1)+"#"+str(j-1)
                     if j>0 and i<size-1:
@@ -219,9 +206,7 @@ def make_graph(size, grid, current):
                             graph.add_edge(f,t,1)
                         else:
                             if grid[i+1][j-1]==EMPTY:
-                                graph.add_edge(f,t,2)
-                            else:
-                                graph.add_edge(f,t,3)
+                                graph.add_edge(f,t,100)
 
                     t=""+str(i+1)+"#"+str(j)
                     if i<size-1:
@@ -229,9 +214,7 @@ def make_graph(size, grid, current):
                             graph.add_edge(f,t,1)
                         else:
                             if grid[i+1][j]==EMPTY:
-                                graph.add_edge(f,t,2)
-                            else:
-                                graph.add_edge(f,t,3)
+                                graph.add_edge(f,t,100)
 
                     t=""+str(i-1)+"#"+str(j)
                     if i>0:
@@ -239,9 +222,7 @@ def make_graph(size, grid, current):
                             graph.add_edge(f,t,1)
                         else:
                             if grid[i-1][j]==EMPTY:
-                                graph.add_edge(f,t,2)
-                            else:
-                                graph.add_edge(f,t,3)
+                                graph.add_edge(f,t,100)
 
                     t=""+str(i-1)+"#"+str(j+1)
                     if i>0 and j<size-1:
@@ -249,9 +230,7 @@ def make_graph(size, grid, current):
                             graph.add_edge(f,t,1)
                         else:
                             if grid[i-1][j+1]==EMPTY:
-                                graph.add_edge(f,t,2)
-                            else:
-                                graph.add_edge(f,t,3)
+                                graph.add_edge(f,t,100)
 
                     t=""+str(i)+"#"+str(j+1)
                     if j<size-1:
@@ -259,9 +238,7 @@ def make_graph(size, grid, current):
                             graph.add_edge(f,t,1)
                         else:
                             if grid[i][j+1]==EMPTY:
-                                graph.add_edge(f,t,2)
-                            else:
-                                graph.add_edge(f,t,3)
+                                graph.add_edge(f,t,100)
 
                     t=""+str(i+1)+"#"+str(j+1)
                     if i<size-1 and j<size-1:
@@ -269,9 +246,7 @@ def make_graph(size, grid, current):
                             graph.add_edge(f,t,1)
                         else:
                             if grid[i+1][j+1]==EMPTY:
-                                graph.add_edge(f,t,2)
-                            else:
-                                graph.add_edge(f,t,3)
+                                graph.add_edge(f,t,100)
     return graph
 
 def djikstra(graph, initial, end):
@@ -295,18 +270,18 @@ def djikstra(graph, initial, end):
 
         next_destinations = {node: shortest_paths[node] for node in shortest_paths if node not in visited}
         if not next_destinations:
-            return "Route Not Possible"
+            return "Route Non Possible"
         current_node = min(next_destinations, key=lambda k: next_destinations[k][1])
 
-    path = []
+    path = list()
     while current_node is not None:
         path.append(current_node)
         next_node = shortest_paths[current_node][0]
         current_node = next_node
-    path = path[::-1]
+    #print(path)
     return path
 
-def find_best(size, graph, current):
+def find_best(size, grid, graph, current):
     lst=list()
     if current==1:
         for i in range(size):
@@ -318,23 +293,30 @@ def find_best(size, graph, current):
             for i in range(size):
                 lst.append(djikstra(graph, "0#"+str(j), ""+str(size-1)+"#"+str(i)))
 
-    sum=weigh(graph,lst[0])
-    path=lst[0]
+    sum=math.inf
+    path=random.choice(lst)
     for elt in lst:
         s=weigh(graph,elt)
-        if s<sum:
+        if s!=0 and s<sum:
             path=elt
             sum=s
 
     tab=random.choice(path).split("#")
     tab[0]=int(tab[0])
     tab[1]=int(tab[1])
+    while grid[tab[0]][tab[1]]:
+        tab=random.choice(path).split("#")
+        tab[0]=int(tab[0])
+        tab[1]=int(tab[1])
     return tab
 
 def weigh(graph, elt):
     sum=0
-    for i in range(len(elt)-2):
-        sum+=graph.weights[(elt[i],elt[i+1])]
+    longeur=len(elt)-2
+    for i in range(longeur):
+        if isinstance(graph.weights.get((elt[i],elt[i+1])), int):
+            sum+=graph.weights.get((elt[i],elt[i+1]))
+    #print(sum)
     return sum
 
 def main():
