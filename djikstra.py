@@ -18,7 +18,7 @@ from collections import defaultdict
 INIT_STATE, START, PLAYING, WAITING_FOR_ACK,\
     WAITING_FOR_ADVERSARY_MOVE, END_STATE, CONNECTION_REFUSED = range(7)
 HOST = '127.0.0.1'
-PORT = 8889
+PORT = 8888
 
 EMPTY=0
 
@@ -79,8 +79,11 @@ def game_client(loop, state):
                 hexgui.redraw(hexboard)
                 print(message)
         if state[0] == PLAYING:
+            row, col = None, None
             graph = make_graph(hexboard.size, hexboard.grid, hexboard.current)
-            row, col = find_best(hexboard.size, graph, hexboard.current)
+            tab = find_best(hexboard.size, graph, hexboard.current)
+            row=tab[0]
+            col=tab[1]
             yield from send_message_callback(writer,row, col,state)
         if state[0] == WAITING_FOR_ACK:
             data = yield from reader.readline()
@@ -319,14 +322,14 @@ def find_best(size, graph, current):
     path=lst[0]
     for elt in lst:
         s=weigh(graph,elt)
-        if(s<sum):
+        if s<sum:
             path=elt
             sum=s
 
     tab=random.choice(path).split("#")
-    row=int(tab[0])
-    col=int(tab[1])
-    return row,col
+    tab[0]=int(tab[0])
+    tab[1]=int(tab[1])
+    return tab
 
 def weigh(graph, elt):
     sum=0
